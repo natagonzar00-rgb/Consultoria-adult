@@ -1,0 +1,46 @@
+{
+    "n_rows": 48842,
+    "n_features": 15,
+    "columns": [
+        "Unnamed: 0",
+        "age",
+        "workclass",
+        "fnlwgt",
+        "education",
+        "education-num",
+        "marital-status",
+        "occupation",
+        "relationship",
+        "race",
+        "sex",
+        "capital-gain",
+        "capital-loss",
+        "hours-per-week",
+        "native-country"
+    ],
+    "target_name": [
+        "Unnamed: 0",
+        "income"
+    ],
+    "missing_values_features": {
+        "Unnamed: 0": 0,
+        "age": 0,
+        "workclass": 963,
+        "fnlwgt": 0,
+        "education": 0,
+        "education-num": 0,
+        "marital-status": 0,
+        "occupation": 966,
+        "relationship": 0,
+        "race": 0,
+        "sex": 0,
+        "capital-gain": 0,
+        "capital-loss": 0,
+        "hours-per-week": 0,
+        "native-country": 274
+    },
+    "missing_values_target": {
+        "Unnamed: 0": 0,
+        "income": 0
+    }
+}
