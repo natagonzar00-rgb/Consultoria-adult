@@ -17,13 +17,27 @@ def validate():
 
     print("Validando datos...")
 
+    # -----------------------------
+    # Cargar datos
+    # -----------------------------
     X = pd.read_parquet(RAW_PATH / "features.parquet")
     y = pd.read_parquet(RAW_PATH / "targets.parquet")
 
-    # -------------------------
-    # Schema del dataset Adult
-    # -------------------------
+    print("Columnas del target:", y.columns.tolist())
 
+    # -----------------------------
+    # Identificar columna target
+    # -----------------------------
+    if "income" in y.columns:
+        target_col = "income"
+    else:
+        target_col = y.columns[-1]
+
+    print(f"Usando columna target: {target_col}")
+
+    # -----------------------------
+    # Schema Adult
+    # -----------------------------
     schema = pa.DataFrameSchema({
         "age": Column(int, Check.in_range(17, 90)),
         "workclass": Column(str, nullable=True),
@@ -41,32 +55,40 @@ def validate():
         "native-country": Column(str, nullable=True)
     })
 
-    # -------------------------
-    # Ejecutar validación
-    # -------------------------
-    validated = schema.validate(X, lazy=True)
+    schema.validate(X, lazy=True)
 
     print("Schema válido.")
 
-    # -------------------------
-    # Chequeos adicionales MLOps
-    # -------------------------
+    # -----------------------------
+    # Distribución correcta
+    # -----------------------------
+    target_distribution = (
+        y[target_col]
+        .value_counts()
+        .to_dict()
+    )
+
+    # -----------------------------
+    # Reporte JSON limpio
+    # -----------------------------
     report = {
-    "n_rows": int(len(X)),
-    "duplicates": int(X.duplicated().sum()),
-    "null_percentage": {
-        str(k): float(v)
-        for k, v in (X.isnull().mean() * 100).items()
-    },
-    "target_distribution": {
-        str(k): int(v)
-        for k, v in y.value_counts().to_dict().items()
+        "n_rows": int(len(X)),
+        "n_features": int(X.shape[1]),
+        "duplicates": int(X.duplicated().sum()),
+        "null_percentage": {
+            str(k): float(v)
+            for k, v in (X.isnull().mean() * 100).items()
+        },
+        "target_distribution": {
+            str(k): int(v)
+            for k, v in target_distribution.items()
+        }
     }
-}
+
     with open(ARTIFACTS_PATH / "validation_report.json", "w") as f:
         json.dump(report, f, indent=4)
 
-    print("Reporte de validación generado.")
+    print("Reporte de validación generado correctamente.")
 
 
 if __name__ == "__main__":
