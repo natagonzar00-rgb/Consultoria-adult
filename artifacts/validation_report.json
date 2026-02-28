@@ -1,9 +1,8 @@
 {
     "n_rows": 48842,
-    "n_features": 15,
-    "duplicates": 0,
+    "n_features": 14,
+    "duplicates": 53,
     "null_percentage": {
-        "Unnamed: 0": 0.0,
         "age": 0.0,
         "workclass": 1.9716637320339052,
         "fnlwgt": 0.0,
@@ -20,9 +19,7 @@
         "native-country": 0.5609925883460956
     },
     "target_distribution": {
-        "<=50K": 24720,
-        "<=50K.": 12435,
-        ">50K": 7841,
-        ">50K.": 3846
+        "<=50K": 37155,
+        ">50K": 11687
     }
 }

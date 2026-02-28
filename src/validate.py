@@ -17,17 +17,23 @@ def validate():
 
     print("Validando datos...")
 
-    # -----------------------------
+    # -------------------------------------------------
     # Cargar datos
-    # -----------------------------
+    # -------------------------------------------------
     X = pd.read_parquet(RAW_PATH / "features.parquet")
     y = pd.read_parquet(RAW_PATH / "targets.parquet")
 
+    # -------------------------------------------------
+    # Eliminar columnas basura tipo 'Unnamed'
+    # -------------------------------------------------
+    X = X.loc[:, ~X.columns.str.contains("^Unnamed")]
+    y = y.loc[:, ~y.columns.str.contains("^Unnamed")]
+
     print("Columnas del target:", y.columns.tolist())
 
-    # -----------------------------
+    # -------------------------------------------------
     # Identificar columna target
-    # -----------------------------
+    # -------------------------------------------------
     if "income" in y.columns:
         target_col = "income"
     else:
@@ -35,9 +41,39 @@ def validate():
 
     print(f"Usando columna target: {target_col}")
 
-    # -----------------------------
-    # Schema Adult
-    # -----------------------------
+    # -------------------------------------------------
+    # Limpieza FUERTE del target (Adult suele venir sucio)
+    # -------------------------------------------------
+    y[target_col] = (
+        y[target_col]
+        .astype(str)
+        .str.replace(r"\.", "", regex=True)   # quitar puntos
+        .str.replace(r"\s+", "", regex=True)  # quitar todos los espacios
+        .str.replace(r"\r|\n", "", regex=True)  # quitar saltos de línea
+    )
+
+    print("Clases únicas después de limpiar:", y[target_col].unique())
+
+    # -------------------------------------------------
+    # Verificación binaria estricta
+    # -------------------------------------------------
+    unique_classes = set(y[target_col].unique())
+    expected_classes = {"<=50K", ">50K"}
+
+    if not unique_classes.issubset(expected_classes):
+        raise ValueError(
+            f"Se detectaron clases inesperadas: {unique_classes}"
+        )
+
+    # -------------------------------------------------
+    # Validación estructural básica
+    # -------------------------------------------------
+    if len(X) != len(y):
+        raise ValueError("Features y Targets tienen diferente número de filas")
+
+    # -------------------------------------------------
+    # Schema Adult (features)
+    # -------------------------------------------------
     schema = pa.DataFrameSchema({
         "age": Column(int, Check.in_range(17, 90)),
         "workclass": Column(str, nullable=True),
@@ -59,18 +95,18 @@ def validate():
 
     print("Schema válido.")
 
-    # -----------------------------
-    # Distribución correcta
-    # -----------------------------
+    # -------------------------------------------------
+    # Distribución del target (YA LIMPIO)
+    # -------------------------------------------------
     target_distribution = (
         y[target_col]
         .value_counts()
         .to_dict()
     )
 
-    # -----------------------------
-    # Reporte JSON limpio
-    # -----------------------------
+    # -------------------------------------------------
+    # Construcción del reporte serializable
+    # -------------------------------------------------
     report = {
         "n_rows": int(len(X)),
         "n_features": int(X.shape[1]),
@@ -89,6 +125,7 @@ def validate():
         json.dump(report, f, indent=4)
 
     print("Reporte de validación generado correctamente.")
+    print("Distribución final:", target_distribution)
 
 
 if __name__ == "__main__":
