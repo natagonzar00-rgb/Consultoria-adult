@@ -45,15 +45,25 @@ El dataset contiene atributos como:
 bash
 .
 ├── data/
+
 │   └── adult.csv
+
 ├── src/
+
 │   ├── train.py
+
 │   ├── preprocess.py
+
 │   └── evaluate.py
+
 ├── outputs/
+
 │   ├── classification_report.png
+
 │   └── confusion_matrix.png
+
 ├── requirements.txt
+
 └── README.md
 
 
@@ -105,13 +115,11 @@ bash
 
 ### Reporte de Clasificación
 
-![Reporte de Clasificación](outputs/classification_report.png)
+![Reporte de Clasificación](models/<run_id>/evaluation/classification_report.png)
 
 ### Matriz de Confusión
 
-![Matriz de Confusión](outputs/confusion_matrix.png)
-
----
+![Matriz de Confusión](models/<run_id>/evaluation/confusion.png)
 
 ## Cómo Ejecutar el Proyecto
 
