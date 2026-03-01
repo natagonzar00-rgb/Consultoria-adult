@@ -62,6 +62,12 @@ if __name__ == "__main__":
         index=False
     )
 
+    # Guardar parquet limpio para entrenamiento
+    df_transformed.to_parquet(
+    "data/raw/targets.parquet",
+    index=False
+    )
+
     # Guardar artefacto serializado
     joblib.dump(
         df_transformed,

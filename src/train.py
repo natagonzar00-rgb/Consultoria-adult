@@ -1,107 +1,169 @@
+# src/train.py
+
+import os
+import json
+import joblib
 import pandas as pd
 from pathlib import Path
+
 import mlflow
+import mlflow.sklearn
+
 from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.model_selection import cross_val_score
-from sklearn.preprocessing import LabelEncoder
-from datetime import datetime
-import subprocess
-import matplotlib.pyplot as plt
-import os
+from sklearn.model_selection import cross_validate, StratifiedKFold
+from sklearn.metrics import make_scorer, f1_score
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder
 
-# -------------------- Utilidades --------------------
-def get_git_commit():
-    """Obtiene el hash del commit actual o 'unknown' si falla."""
-    try:
-        commit = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
-        return commit
-    except Exception:
-        return "unknown"
 
-def load_data():
-    data_dir = Path(__file__).parent.parent / 'data' / 'raw'
+RAW_PATH = Path("data/raw")
 
-    # --- Cargar features ---
-    X = pd.read_parquet(data_dir / 'features.parquet')
 
-    # --- Cargar targets ---
-    y_df = pd.read_csv(data_dir / 'targets.csv', index_col=0)
-    if 'income' not in y_df.columns:
-        raise ValueError("No se encontró la columna 'income' en targets.csv")
-    y = y_df['income'].copy()
+def train():
 
-    # --- Limpiar filas con NaN en y ---
-    mask = ~y.isna()
-    X = X.loc[mask].reset_index(drop=True)
-    y = y.loc[mask].reset_index(drop=True)
+    print("Iniciando entrenamiento...")
 
-    # --- Manejar NaN en X rellenando con median ---
-    for col in X.select_dtypes(include='number').columns:
-        X[col] = X[col].fillna(X[col].median())
+    # -------------------------------------------------
+    # Cargar datos
+    # -------------------------------------------------
+    X = pd.read_parquet(RAW_PATH / "features.parquet")
+    y = pd.read_parquet(RAW_PATH / "targets.parquet")["income"]
 
-    # --- Codificar y ---
-    le = LabelEncoder()
-    y = le.fit_transform(y)
+    print("Distribución del target:")
+    print(y.value_counts())
 
-    # --- Codificar variables categóricas ---
-    cat_cols = X.select_dtypes(include='object').columns
-    if len(cat_cols) > 0:
-        print(f"Columnas categóricas a codificar: {list(cat_cols)}")
-        X = pd.get_dummies(X, columns=cat_cols, drop_first=True)
+    # -------------------------------------------------
+    # Identificar columnas
+    # -------------------------------------------------
+    categorical_cols = X.select_dtypes(include=["object"]).columns
+    numeric_cols = X.select_dtypes(exclude=["object"]).columns
 
-    return X, y
+    print("Columnas categóricas:", list(categorical_cols))
+    print("Columnas numéricas:", list(numeric_cols))
 
-# -------------------- Entrenamiento --------------------
-def train(X_train, y_train, params: dict):
-    mlflow.set_experiment('adult-income')
-    with mlflow.start_run():
-        clf = GradientBoostingClassifier(**params)
+    # -------------------------------------------------
+    # Preprocesamiento
+    # -------------------------------------------------
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("cat", OneHotEncoder(handle_unknown="ignore"), categorical_cols),
+            ("num", "passthrough", numeric_cols)
+        ]
+    )
 
-        # --- Validación cruzada ---
-        scores = cross_val_score(
-            clf, X_train, y_train,
-            cv=5,
-            scoring='f1_macro',
-            error_score='raise'
-        )
+    # -------------------------------------------------
+    # Modelo
+    # -------------------------------------------------
+    model = GradientBoostingClassifier(
+        n_estimators=200,
+        learning_rate=0.05,
+        max_depth=3,
+        random_state=42
+    )
 
-        # --- Entrenamiento final ---
-        clf.fit(X_train, y_train)
+    pipeline = Pipeline(
+        steps=[
+            ("preprocessing", preprocessor),
+            ("model", model)
+        ]
+    )
 
-        # --- Logging MLflow ---
-        mlflow.log_params(params)
-        mlflow.log_metric('f1_cv', scores.mean())
-        mlflow.sklearn.log_model(clf, 'model')
+    # -------------------------------------------------
+    # Cross Validation
+    # -------------------------------------------------
+    cv = StratifiedKFold(
+        n_splits=5,
+        shuffle=True,
+        random_state=42
+    )
 
-        # --- Tags / metadata ---
-        mlflow.set_tag('dataset_version', 'v1.0')
-        mlflow.set_tag('git_commit', get_git_commit())
-        mlflow.set_tag('run_timestamp', datetime.utcnow().isoformat())
-
-        # --- Feature importance opcional ---
-        fi = pd.Series(clf.feature_importances_, index=X_train.columns)
-        fi = fi.sort_values(ascending=False)
-        plt.figure(figsize=(8,6))
-        fi.head(20).plot(kind='barh')
-        plt.title('Top 20 Feature Importances')
-        plt.gca().invert_yaxis()
-        os.makedirs("artifacts", exist_ok=True)
-        fi_path = "artifacts/feature_importance.png"
-        plt.savefig(fi_path)
-        mlflow.log_artifact(fi_path)
-        plt.close()
-
-        print(f"Run finished with mean F1 score: {scores.mean():.4f}")
-
-# -------------------- Main --------------------
-if __name__ == '__main__':
-    X_train, y_train = load_data()
-
-    params = {
-        'n_estimators': 100,
-        'learning_rate': 0.1,
-        'max_depth': 3,
-        'random_state': 42,
+    scoring = {
+        "f1": make_scorer(f1_score),
+        "accuracy": "accuracy",
+        "roc_auc": "roc_auc"
     }
 
-    train(X_train, y_train, params)
+    # -------------------------------------------------
+    # MLflow
+    # -------------------------------------------------
+    mlflow.set_experiment("adult-income")
+
+    with mlflow.start_run():
+
+        run_id = mlflow.active_run().info.run_id
+        print(f"Run ID: {run_id}")
+
+        cv_results = cross_validate(
+            pipeline,
+            X,
+            y,
+            cv=cv,
+            scoring=scoring
+        )
+
+        pipeline.fit(X, y)
+
+        # -------------------------
+        # Métricas promedio
+        # -------------------------
+        metrics = {
+            "f1_mean": cv_results["test_f1"].mean(),
+            "accuracy_mean": cv_results["test_accuracy"].mean(),
+            "roc_auc_mean": cv_results["test_roc_auc"].mean()
+        }
+
+        # -------------------------
+        # Parámetros
+        # -------------------------
+        params = pipeline.named_steps["model"].get_params()
+
+        # -------------------------
+        # Tags
+        # -------------------------
+        tags = {
+            "dataset": "adult",
+            "model_type": "GradientBoosting",
+            "cv_folds": 5
+        }
+
+        # -------------------------
+        # Log MLflow
+        # -------------------------
+        mlflow.log_metrics(metrics)
+        mlflow.log_params(params)
+        mlflow.set_tags(tags)
+        mlflow.sklearn.log_model(pipeline, "model")
+
+        # -------------------------------------------------
+        # Guardado local estructurado
+        # -------------------------------------------------
+        base_path = Path("artifacts") / run_id
+        (base_path / "model").mkdir(parents=True, exist_ok=True)
+        (base_path / "metrics").mkdir(parents=True, exist_ok=True)
+        (base_path / "params").mkdir(parents=True, exist_ok=True)
+        (base_path / "tags").mkdir(parents=True, exist_ok=True)
+
+        # Guardar métricas
+        with open(base_path / "metrics" / "metrics.json", "w") as f:
+            json.dump(metrics, f, indent=4)
+
+        # Guardar parámetros
+        with open(base_path / "params" / "params.json", "w") as f:
+            json.dump(params, f, indent=4)
+
+        # Guardar tags
+        with open(base_path / "tags" / "tags.json", "w") as f:
+            json.dump(tags, f, indent=4)
+
+        # Guardar modelo
+        joblib.dump(pipeline, base_path / "model" / "model.joblib")
+
+        # Opcional: subir carpeta completa como artifact a MLflow
+        mlflow.log_artifacts(str(base_path))
+
+    print("Entrenamiento finalizado y todo guardado correctamente.")
+
+
+if __name__ == "__main__":
+    train()

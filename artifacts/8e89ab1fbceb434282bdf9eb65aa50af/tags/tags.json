@@ -1,0 +1,5 @@
+{
+    "dataset": "adult",
+    "model_type": "GradientBoosting",
+    "cv_folds": 5
+}
