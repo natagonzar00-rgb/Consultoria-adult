@@ -115,7 +115,7 @@ bash
 
 ### Reporte de Clasificación
 
-![Reporte de Clasificación](models/<run_id>/evaluation/classification_report.png)
+![Reporte de Clasificación](models/<run_id>/evaluation/classification_report.html)
 
 ### Matriz de Confusión
 
