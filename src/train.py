@@ -18,6 +18,7 @@ from sklearn.preprocessing import OneHotEncoder
 
 
 RAW_PATH = Path("data/raw")
+MODELS_PATH = Path("models")
 
 
 def train():
@@ -84,9 +85,6 @@ def train():
         "roc_auc": "roc_auc"
     }
 
-    # -------------------------------------------------
-    # MLflow
-    # -------------------------------------------------
     mlflow.set_experiment("adult-income")
 
     with mlflow.start_run():
@@ -105,7 +103,7 @@ def train():
         pipeline.fit(X, y)
 
         # -------------------------
-        # Métricas promedio
+        # Métricas
         # -------------------------
         metrics = {
             "f1_mean": cv_results["test_f1"].mean(),
@@ -128,7 +126,7 @@ def train():
         }
 
         # -------------------------
-        # Log MLflow
+        # Log en MLflow
         # -------------------------
         mlflow.log_metrics(metrics)
         mlflow.log_params(params)
@@ -136,9 +134,9 @@ def train():
         mlflow.sklearn.log_model(pipeline, "model")
 
         # -------------------------------------------------
-        # Guardado local estructurado
+        # Guardado local en models/
         # -------------------------------------------------
-        base_path = Path("artifacts") / run_id
+        base_path = MODELS_PATH / run_id
         (base_path / "model").mkdir(parents=True, exist_ok=True)
         (base_path / "metrics").mkdir(parents=True, exist_ok=True)
         (base_path / "params").mkdir(parents=True, exist_ok=True)
@@ -159,10 +157,7 @@ def train():
         # Guardar modelo
         joblib.dump(pipeline, base_path / "model" / "model.joblib")
 
-        # Opcional: subir carpeta completa como artifact a MLflow
-        mlflow.log_artifacts(str(base_path))
-
-    print("Entrenamiento finalizado y todo guardado correctamente.")
+    print("Entrenamiento finalizado y guardado en carpeta models/ correctamente.")
 
 
 if __name__ == "__main__":
