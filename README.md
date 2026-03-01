@@ -82,6 +82,32 @@ bash
 
 ---
 
+## Modelo Utilizado
+
+Para la tarea de clasificación se utilizó un **Gradient Boosting Classifier**
+implementado con `scikit-learn`.
+
+El modelo fue entrenado dentro de un pipeline que incluye:
+
+- **Preprocesamiento**
+  - Codificación de variables categóricas mediante `OneHotEncoder`
+  - Paso directo de variables numéricas
+  - Integración mediante `ColumnTransformer`
+
+- **Modelo**
+  - `GradientBoostingClassifier`
+  - 200 estimadores (`n_estimators=200`)
+  - Learning rate = 0.05
+  - Profundidad máxima = 3
+  - Semilla aleatoria = 42
+
+- **Validación**
+  - Validación cruzada estratificada de 5 folds (`StratifiedKFold`)
+  - Métricas evaluadas: Accuracy, F1-score y ROC-AUC
+
+El modelo final se entrenó sobre el conjunto completo de datos
+y se almacenó versionado por `run_id` dentro de la carpeta `models/`.
+
 ##  Resultados del Modelo
 
 ### 🔹 Reporte de Clasificación
