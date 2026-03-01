@@ -113,13 +113,11 @@ bash
 
 ## Visualizaciones
 
-### Reporte de Clasificación
-
-![Reporte de Clasificación](models/<run_id>/evaluation/classification_report.html)
+![Reporte](outputs/report.html)
 
 ### Matriz de Confusión
 
-![Matriz de Confusión](models/<run_id>/evaluation/confusion.png)
+![Matriz de Confusión](outputs/confusion.png)
 
 ## Cómo Ejecutar el Proyecto
 
